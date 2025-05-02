@@ -5,39 +5,38 @@ import time
 BOT_TOKEN = '8195288813:AAFjnWDf1sP8WnzhEgar3zBh-wqVgp7Hctw'
 CHAT_ID = '5421253351'
 
-def get_all_usdt_symbols():
-    url = 'https://api.binance.com/api/v3/exchangeInfo'
-    data = requests.get(url).json()
-    return [s['symbol'] for s in data['symbols'] if s['quoteAsset'] == 'USDT' and s['status'] == 'TRADING']
-
 def send_telegram_message(message):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     data = {'chat_id': CHAT_ID, 'text': message}
     requests.post(url, data=data)
 
-def get_klines(symbol, interval, limit=500):
-    url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
+def get_klines(symbol, interval, limit=200):
+    url = f'https://api.bybit.com/v5/market/kline?category=spot&symbol={symbol}&interval={interval}&limit={limit}'
     response = requests.get(url)
     data = response.json()
-    df = pd.DataFrame(data, columns=[
-        'timestamp', 'open', 'high', 'low', 'close', 'volume',
-        'close_time', 'quote_asset_volume', 'number_of_trades',
-        'taker_buy_base_volume', 'taker_buy_quote_volume', 'ignore'
+    if 'result' not in data or 'list' not in data['result']:
+        print(f"שגיאה בהבאת נתונים עבור {symbol}: {data}")
+        return pd.DataFrame()
+    df = pd.DataFrame(data['result']['list'], columns=[
+        'timestamp', 'open', 'high', 'low', 'close', 'volume'
     ])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
     df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
     return df
 
 def check_sweep(symbol):
     try:
-        daily = get_klines(symbol, '1d', 3)
+        daily = get_klines(symbol, 'D', 3)
         if len(daily) < 2:
             return
         prev_day = daily.iloc[-2]
         prev_high = prev_day['high']
         prev_low = prev_day['low']
 
-        df15 = get_klines(symbol, '15m', 200)
+        df15 = get_klines(symbol, '15', 200)
+        if df15.empty:
+            return
+
         breakout_index = None
         breakout_high = None
         breakout_low = None
@@ -75,4 +74,16 @@ def check_sweep(symbol):
                     f'{symbol} - 🟢 Long Entry Signal!\n'
                     f'Crossed below previous day\'s low: {breakout_low:.2f}'
                 )
-                send_telegram_message(msg
+                send_telegram_message(msg)
+                return
+
+    except Exception as e:
+        print(f"שגיאה ב-{symbol}: {e}")
+
+# רק BTCUSDT
+symbols = ['BTCUSDT']
+
+while True:
+    for symbol in symbols:
+        check_sweep(symbol)
+        time.sleep(1)

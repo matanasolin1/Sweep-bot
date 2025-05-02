@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import time
+import datetime
 
 # === Telegram Settings ===
 BOT_TOKEN = '8195288813:AAFjnWDf1sP8WnzhEgar3zBh-wqVgp7Hctw'
@@ -9,7 +10,7 @@ CHAT_ID = '5421253351'
 # === TwelveData API Key ===
 API_KEY = '5c38db1488fc49bcb0258a48e6773dc6'
 
-# === List of 6 Symbols ===
+# === רשימת מטבעות (6 בלבד כדי לעמוד במגבלת API) ===
 symbols = [
     "BTC/USDT",
     "ETH/USDT",
@@ -19,13 +20,23 @@ symbols = [
     "DOGE/USDT"
 ]
 
-# === Telegram Function ===
+last_heartbeat_hour = None
+
 def send_telegram_message(message):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     data = {'chat_id': CHAT_ID, 'text': message}
     requests.post(url, data=data)
 
-# === Get Klines from TwelveData ===
+# === הודעת בדיקה כל שעה עגולה ===
+def send_heartbeat():
+    global last_heartbeat_hour
+    now = datetime.datetime.now()
+    current_hour = now.hour
+    if current_hour != last_heartbeat_hour and now.minute == 0:
+        last_heartbeat_hour = current_hour
+        send_telegram_message("בדיקה 🟦")
+
+# === נתוני גרף מ-TwelveData ===
 def get_klines(symbol, interval, outputsize=500):
     url = 'https://api.twelvedata.com/time_series'
     params = {
@@ -46,7 +57,7 @@ def get_klines(symbol, interval, outputsize=500):
     df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
     return df
 
-# === Sweep Strategy ===
+# === אסטרטגיית Sweep ===
 def check_sweep(symbol):
     try:
         print(f"בודק {symbol}...")
@@ -104,12 +115,13 @@ def check_sweep(symbol):
     except Exception as e:
         print(f"שגיאה ב-{symbol}: {e}")
 
-# === Continuous Sweep Loop ===
+# === ריצה מתמשכת ===
 while True:
     start_time = time.time()
     for symbol in symbols:
         check_sweep(symbol)
     elapsed = time.time() - start_time
     wait_time = max(0, 90 - elapsed)
+    send_heartbeat()
     print(f"סבב הסתיים, ממתין {wait_time:.1f} שניות...")
     time.sleep(wait_time)

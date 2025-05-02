@@ -107,4 +107,4 @@ def check_sweep(symbol):
 while True:
     for symbol in symbols:
         check_sweep(symbol)
-        time.sleep(1)
+        time.sleep(8)  # כדי לעמוד במגבלת API של TwelveData

@@ -9,7 +9,7 @@ CHAT_ID = '5421253351'
 # === TwelveData API Key ===
 API_KEY = '5c38db1488fc49bcb0258a48e6773dc6'
 
-# === List of symbols ===
+# === List of 6 Symbols ===
 symbols = [
     "BTC/USDT",
     "ETH/USDT",
@@ -37,7 +37,7 @@ def get_klines(symbol, interval, outputsize=500):
     response = requests.get(url, params=params)
     data = response.json()
     if 'values' not in data:
-        print(f"שגיאה בנתונים מ-TwelveData עבור {symbol}: {data}")
+        print(f"שגיאה בנתונים עבור {symbol}: {data}")
         return pd.DataFrame()
     df = pd.DataFrame(data['values'])
     df['datetime'] = pd.to_datetime(df['datetime'])
@@ -49,6 +49,7 @@ def get_klines(symbol, interval, outputsize=500):
 # === Sweep Strategy ===
 def check_sweep(symbol):
     try:
+        print(f"בודק {symbol}...")
         daily = get_klines(symbol, '1day', 3)
         if len(daily) < 2:
             return
@@ -103,8 +104,12 @@ def check_sweep(symbol):
     except Exception as e:
         print(f"שגיאה ב-{symbol}: {e}")
 
-# === Run loop ===
+# === Continuous Sweep Loop ===
 while True:
+    start_time = time.time()
     for symbol in symbols:
         check_sweep(symbol)
-        time.sleep(8)  # כדי לעמוד במגבלת API של TwelveData
+    elapsed = time.time() - start_time
+    wait_time = max(0, 90 - elapsed)
+    print(f"סבב הסתיים, ממתין {wait_time:.1f} שניות...")
+    time.sleep(wait_time)

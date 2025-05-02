@@ -2,38 +2,61 @@ import requests
 import pandas as pd
 import time
 
+# === Telegram Settings ===
 BOT_TOKEN = '8195288813:AAFjnWDf1sP8WnzhEgar3zBh-wqVgp7Hctw'
 CHAT_ID = '5421253351'
 
+# === TwelveData API Key ===
+API_KEY = '5c38db1488fc49bcb0258a48e6773dc6'
+
+# === List of symbols ===
+symbols = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "XRP/USDT",
+    "BNB/USDT",
+    "SOL/USDT",
+    "DOGE/USDT"
+]
+
+# === Telegram Function ===
 def send_telegram_message(message):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     data = {'chat_id': CHAT_ID, 'text': message}
     requests.post(url, data=data)
 
-def get_klines(symbol, interval, limit=200):
-    url = f'https://api.bybit.com/v5/market/kline?category=spot&symbol={symbol}&interval={interval}&limit={limit}'
-    response = requests.get(url)
+# === Get Klines from TwelveData ===
+def get_klines(symbol, interval, outputsize=500):
+    url = 'https://api.twelvedata.com/time_series'
+    params = {
+        'symbol': symbol,
+        'interval': interval,
+        'apikey': API_KEY,
+        'outputsize': outputsize
+    }
+    response = requests.get(url, params=params)
     data = response.json()
-    if 'result' not in data or 'list' not in data['result']:
-        print(f"שגיאה בהבאת נתונים עבור {symbol}: {data}")
+    if 'values' not in data:
+        print(f"שגיאה בנתונים מ-TwelveData עבור {symbol}: {data}")
         return pd.DataFrame()
-    df = pd.DataFrame(data['result']['list'], columns=[
-        'timestamp', 'open', 'high', 'low', 'close', 'volume'
-    ])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+    df = pd.DataFrame(data['values'])
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    df.set_index('datetime', inplace=True)
+    df = df.sort_index()
     df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
     return df
 
+# === Sweep Strategy ===
 def check_sweep(symbol):
     try:
-        daily = get_klines(symbol, 'D', 3)
+        daily = get_klines(symbol, '1day', 3)
         if len(daily) < 2:
             return
         prev_day = daily.iloc[-2]
         prev_high = prev_day['high']
         prev_low = prev_day['low']
 
-        df15 = get_klines(symbol, '15', 200)
+        df15 = get_klines(symbol, '15min', 200)
         if df15.empty:
             return
 
@@ -80,9 +103,7 @@ def check_sweep(symbol):
     except Exception as e:
         print(f"שגיאה ב-{symbol}: {e}")
 
-# רק BTCUSDT
-symbols = ['BTCUSDT']
-
+# === Run loop ===
 while True:
     for symbol in symbols:
         check_sweep(symbol)

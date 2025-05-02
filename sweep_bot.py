@@ -75,14 +75,4 @@ def check_sweep(symbol):
                     f'{symbol} - 🟢 Long Entry Signal!\n'
                     f'Crossed below previous day\'s low: {breakout_low:.2f}'
                 )
-                send_telegram_message(msg)
-                return
-
-    except Exception as e:
-        print(f"שגיאה ב-{symbol}: {e}")
-
-symbols = get_all_usdt_symbols()
-while True:
-    for symbol in symbols:
-        check_sweep(symbol)
-        time.sleep(1)
+                send_telegram_message(msg

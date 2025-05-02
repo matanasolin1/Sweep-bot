@@ -2,23 +2,19 @@ import requests
 import pandas as pd
 import time
 
-# === Telegram Settings ===
 BOT_TOKEN = '8195288813:AAFjnWDf1sP8WnzhEgar3zBh-wqVgp7Hctw'
 CHAT_ID = '5421253351'
 
-# === Get all USDT trading symbols from Binance ===
 def get_all_usdt_symbols():
     url = 'https://api.binance.com/api/v3/exchangeInfo'
     data = requests.get(url).json()
     return [s['symbol'] for s in data['symbols'] if s['quoteAsset'] == 'USDT' and s['status'] == 'TRADING']
 
-# === Telegram Function ===
 def send_telegram_message(message):
     url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     data = {'chat_id': CHAT_ID, 'text': message}
     requests.post(url, data=data)
 
-# === Binance Klines ===
 def get_klines(symbol, interval, limit=500):
     url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
     response = requests.get(url)
@@ -32,10 +28,11 @@ def get_klines(symbol, interval, limit=500):
     df[['open', 'high', 'low', 'close']] = df[['open', 'high', 'low', 'close']].astype(float)
     return df
 
-# === Sweep Strategy Logic ===
 def check_sweep(symbol):
     try:
         daily = get_klines(symbol, '1d', 3)
+        if len(daily) < 2:
+            return
         prev_day = daily.iloc[-2]
         prev_high = prev_day['high']
         prev_low = prev_day['low']
@@ -84,9 +81,8 @@ def check_sweep(symbol):
     except Exception as e:
         print(f"שגיאה ב-{symbol}: {e}")
 
-# === Continuous Execution ===
 symbols = get_all_usdt_symbols()
 while True:
     for symbol in symbols:
         check_sweep(symbol)
-        time.sleep(1)  # Small delay between symbols to avoid API overload
+        time.sleep(1)
